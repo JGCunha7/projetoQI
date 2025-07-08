@@ -7,7 +7,7 @@ if (!isset($_SESSION['cart'])) {
     $_SESSION['cart'] = [];
 }
 
-// Esta página apenas exibe o carrinho; o processamento AJAX é em cart_ajax_processor.php
+// Esta página só lida com a exibição; o processamento AJAX é em cart_ajax_processor.php
 // As mensagens e updates visuais são feitos via JavaScript/AJAX.
 
 $subtotal = 0;
@@ -190,13 +190,48 @@ $total = $subtotal - $discount + $shipping;
                 <h3>Meio de Pagamento</h3>
                 <div class="form-group">
                     <label for="pagamento">Escolha a forma de pagamento:</label>
-                    <select id="pagamento" name="pagamento" required>
+                    <select id="pagamento" name="pagamento" required onchange="showPaymentFields()">
                         <option value="">Selecione...</option>
                         <option value="cartao">Cartão de Crédito/Débito</option>
-                        <option value="boleto">Boleto Bancário</option>
                         <option value="pix">PIX</option>
-                    </select>
+                        </select>
                 </div>
+
+                <div id="payment-fields-container">
+                    <div id="card-fields" class="payment-method-fields" style="display: none;">
+                        <h4>Dados do Cartão</h4>
+                        <div class="form-group">
+                            <label for="card-number">Número do Cartão:</label>
+                            <input type="text" id="card-number" name="card_number" placeholder="XXXX XXXX XXXX XXXX" pattern="\d{16}" title="16 dígitos numéricos">
+                        </div>
+                        <div class="form-group">
+                            <label for="card-name">Nome no Cartão:</label>
+                            <input type="text" id="card-name" name="card_name" placeholder="Nome Impresso no Cartão">
+                        </div>
+                        <div class="form-group half-width">
+                            <label for="card-expiry">Validade (MM/AA):</label>
+                            <input type="text" id="card-expiry" name="card_expiry" placeholder="MM/AA" pattern="(0[1-9]|1[0-2])\/\d{2}" title="Formato MM/AA">
+                        </div>
+                        <div class="form-group half-width">
+                            <label for="card-cvv">CVV:</label>
+                            <input type="text" id="card-cvv" name="card_cvv" placeholder="XXX" pattern="\d{3,4}" title="3 ou 4 dígitos numéricos">
+                        </div>
+                    </div>
+
+                    <div id="pix-fields" class="payment-method-fields" style="display: none;">
+                        <h4>Pague com PIX</h4>
+                        <p style="text-align: center;">Escaneie o QR Code ou copie a chave PIX:</p>
+                        <div class="pix-qr-code">
+                            <img src="pixqr.png" alt="QR Code PIX" id="imagemqr"> </div>
+                        <div class="form-group">
+                            <label for="pix-key">Chave PIX (CNPJ):</label>
+                            <input type="text" id="pix-key" name="pix_key" value="00.000.000/0001-00" readonly>
+                            <button type="button" class="copy-button" onclick="copyToClipboard('pix-key')"><i class="fas fa-copy"></i> Copiar Chave</button>
+                        </div>
+                        <p style="font-size: 0.9em; text-align: center; color: var(--color-plum-purple);">Sua compra será confirmada após o pagamento.</p>
+                    </div>
+                </div>
+                
                 <button type="submit" class="place-order-btn">Finalizar Compra</button>
             </form>
         </section>
@@ -227,13 +262,12 @@ $total = $subtotal - $discount + $shipping;
         // Função para atualizar o resumo do carrinho
         function updateCartSummary(data) {
             document.getElementById('subtotalValue').textContent = formatCurrency(data.subtotal);
-            // Implemente discountValue e shippingValue se a lógica for mais complexa
-            let shipping = data.subtotal > 0 ? 25.00 : 0.00;
+            let shipping = data.subtotal > 0 ? 25.00 : 0.00; // Frete
             document.getElementById('shippingValue').textContent = formatCurrency(shipping);
-            document.getElementById('totalValue').textContent = formatCurrency(data.subtotal - 0 + shipping); // Considerando desconto 0 por enquanto
+            document.getElementById('totalValue').textContent = formatCurrency(data.subtotal - 0 + shipping); // Considerando desconto 0
 
-            const cartItemsContainer = document.getElementById('cartItemsContainer');
             const checkoutFormSection = document.querySelector('.checkout-form');
+            const cartItemsContainer = document.getElementById('cartItemsContainer');
 
             if (data.total_items === 0) {
                 cartItemsContainer.innerHTML = '<p style="text-align: center; font-size: 1.2em; color: var(--color-text-dark);">Seu carrinho está vazio.</p>';
@@ -290,6 +324,12 @@ $total = $subtotal - $discount + $shipping;
 
         // Função para anexar event listeners aos botões e formulários do carrinho
         function attachCartEventListeners() {
+            // Remove listeners existentes antes de anexar novamente (para evitar duplicatas)
+            document.querySelectorAll('.qty-btn.increase-qty, .qty-btn.decrease-qty, .remove-item-form').forEach(el => {
+                const newEl = el.cloneNode(true); // Clonar para remover todos os listeners
+                el.parentNode.replaceChild(newEl, el);
+            });
+
             // Event listeners para aumentar/diminuir quantidade
             document.querySelectorAll('.qty-btn.increase-qty').forEach(button => {
                 button.onclick = function() {
@@ -310,7 +350,6 @@ $total = $subtotal - $discount + $shipping;
                     if (currentQty > 1) {
                         performCartAction('update_qty', productId, currentQty - 1);
                     } else {
-                        // Se for 1 e diminuir, é como remover
                         if (confirm('Tem certeza que deseja remover este item do carrinho?')) {
                             performCartAction('remove', productId);
                         }
@@ -379,9 +418,41 @@ $total = $subtotal - $discount + $shipping;
             return str.replace(/[&<>"']/g, function(m) { return map[m]; });
         }
 
+        // --- Lógica para mostrar/esconder campos de pagamento dinâmicos ---
+        function showPaymentFields() {
+            const paymentMethod = document.getElementById('pagamento').value;
+            const paymentFields = document.querySelectorAll('.payment-method-fields');
+
+            paymentFields.forEach(field => {
+                field.style.display = 'none'; // Esconde todos os campos
+                // Remover o atributo 'required' de todos os inputs em campos escondidos
+                field.querySelectorAll('input').forEach(input => input.removeAttribute('required'));
+            });
+
+            if (paymentMethod === 'cartao') {
+                document.getElementById('card-fields').style.display = 'block';
+                // Adicionar 'required' apenas aos campos do cartão
+                document.getElementById('card-fields').querySelectorAll('input').forEach(input => input.setAttribute('required', 'required'));
+            } else if (paymentMethod === 'pix') {
+                document.getElementById('pix-fields').style.display = 'block';
+            }
+            // A opção 'boleto' foi removida, então não há 'else if' para ela aqui
+        }
+
+        // Função para copiar para a área de transferência
+        function copyToClipboard(elementId) {
+            const input = document.getElementById(elementId);
+            input.select();
+            input.setSelectionRange(0, 99999); // Para mobile
+            document.execCommand('copy');
+            alert('Copiado: ' + input.value); // Feedback visual
+        }
 
         // Anexar event listeners quando a página carregar
-        document.addEventListener('DOMContentLoaded', attachCartEventListeners);
+        document.addEventListener('DOMContentLoaded', () => {
+            attachCartEventListeners();
+            showPaymentFields(); // Inicializa os campos de pagamento corretamente
+        });
     </script>
 </body>
 </html>
