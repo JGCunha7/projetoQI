@@ -20,10 +20,38 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $estado = $_POST['estado'] ?? '';
     $pagamento = $_POST['pagamento'] ?? '';
 
-    // Validação básica (expanda conforme necessário para produção)
-    if (empty($nome) || empty($email) || empty($rua) || empty($cidade) || empty($estado) || empty($pagamento)) {
-        $message = "Por favor, preencha todos os campos obrigatórios do formulário de checkout.";
-        $message_type = 'error';
+    // Dados específicos do pagamento (simulados)
+    $card_number = $_POST['card_number'] ?? '';
+    $card_name = $_POST['card_name'] ?? '';
+    $card_expiry = $_POST['card_expiry'] ?? '';
+    $card_cvv = $_POST['card_cvv'] ?? '';
+    $pix_key_simulated = "00.000.000/0001-00"; // Simulado
+    
+    $payment_details_display = '';
+
+    switch ($pagamento) {
+        case 'cartao':
+            // Em produção: Validaria e processaria com API de pagamento
+            $last_four_digits = substr($card_number, -4);
+            $payment_details_display = "Cartão de Crédito/Débito (final: {$last_four_digits})";
+            if (empty($card_number) || empty($card_name) || empty($card_expiry) || empty($card_cvv)) {
+                $message = "Por favor, preencha todos os dados do cartão.";
+                $message_type = 'error';
+            }
+            break;
+        case 'pix':
+            // Em produção: Geraria QR Code real e chave PIX real ligada ao pedido
+            $payment_details_display = "PIX (Chave: {$pix_key_simulated})";
+            break;
+        default: // Inclui boleto caso algum valor inválido seja enviado (mesmo que a opção tenha sido removida)
+            $message = "Método de pagamento inválido.";
+            $message_type = 'error';
+            break;
+    }
+
+    // Se já houver uma mensagem de erro, para a execução antes de continuar com estoque
+    if (!empty($message)) {
+        // Renderiza a página com a mensagem de erro
     } else {
         // Obter itens do carrinho da sessão
         $cart_items = $_SESSION['cart'] ?? [];
@@ -36,7 +64,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $can_process_order = true;
             $stock_errors = [];
             
-            // 1. Verificar estoque para cada item no carrinho
             foreach ($cart_items as $cart_item_id => $details) {
                 $product_id_in_cart = $details['id'];
                 $quantity_in_cart = $details['quantity'];
@@ -63,30 +90,29 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
 
             if (!$can_process_order) {
-                // Se houver erros de estoque, não finaliza a compra
                 $message = "Não foi possível finalizar a compra devido a problemas de estoque:<br>" . implode("<br>", $stock_errors);
                 $message_type = 'error';
             } else {
                 // 2. Reduzir o estoque (apenas se tudo estiver ok)
-                $conn->begin_transaction(); // Inicia uma transação para garantir que todas as atualizações ocorram ou nenhuma
+                $conn->begin_transaction(); // Inicia uma transação
 
                 try {
                     foreach ($cart_items as $cart_item_id => $details) {
                         $product_id_in_cart = $details['id'];
                         $quantity_in_cart = $details['quantity'];
 
-                        $stmt_update_stock = $conn->prepare("UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?");
-                        $stmt_update_stock->bind_param("ii", $quantity_in_cart, $product_id_in_cart);
+                        $stmt_update_stock = $conn->prepare("UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ? AND stock_quantity >= ?"); // Previne estoque negativo
+                        $stmt_update_stock->bind_param("iii", $quantity_in_cart, $product_id_in_cart, $quantity_in_cart);
                         $stmt_update_stock->execute();
                         
                         if ($stmt_update_stock->affected_rows === 0) {
                             // Se 0 linhas afetadas, significa que o produto não existe ou o estoque já era 0 (race condition)
-                            throw new Exception("Falha ao atualizar estoque para o produto ID {$product_id_in_cart}.");
+                            throw new Exception("Falha ao atualizar estoque para o produto ID {$product_id_in_cart}. Pode não haver estoque suficiente.");
                         }
                         $stmt_update_stock->close();
                     }
 
-                    // Calcular o total (recalculado aqui para garantir que esteja com dados atuais)
+                    // Calcular o total
                     $subtotal = 0;
                     foreach ($cart_items as $item) {
                         $subtotal += $item['price'] * $item['quantity'];
@@ -95,38 +121,64 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $shipping = $subtotal > 0 ? 25.00 : 0.00;
                     $total_payable = $subtotal - $discount + $shipping;
 
-                    // --- SIMULAÇÃO DE PROCESSAMENTO DE PEDIDO (CONTINUA) ---
-                    // Em um sistema real, aqui você:
-                    // 1. Inseriria o pedido em uma tabela de 'pedidos' no banco de dados.
-                    // 2. Inseriria cada item do carrinho em uma tabela 'itens_do_pedido', linkando ao pedido.
-                    // 3. Opcional: Integraria com um gateway de pagamento (PagSeguro, Stripe, etc.).
-                    // 4. Opcional: Enviaria um e-mail de confirmação ao cliente.
+                    // --- SIMULAÇÃO DE GERAÇÃO DE NOTA DO PEDIDO ---
+                    // Em um sistema real, você registraria o pedido e itens no BD e obteria um ID real.
+                    $order_id_simulated = "ORD-" . time() . rand(100, 999); // ID de pedido simulado
+                    $order_date = date("d/m/Y H:i:s");
 
-                    $order_details_display = "Detalhes do Pedido:\n";
+                    $order_details_display_html = "
+                        <h3>Detalhes do Pedido</h3>
+                        <p><strong>Pedido ID:</strong> {$order_id_simulated}</p>
+                        <p><strong>Data:</strong> {$order_date}</p>
+                        <p><strong>Cliente:</strong> " . htmlspecialchars($nome) . "</p>
+                        <p><strong>Email:</strong> " . htmlspecialchars($email) . "</p>
+                        <p><strong>Telefone:</strong> " . htmlspecialchars($telefone) . "</p>
+                        <p><strong>Endereço de Entrega:</strong> " . htmlspecialchars("{$rua}, {$numero} {$complemento} - {$bairro}, {$cidade}/{$estado} - CEP: {$cep}") . "</p>
+                        
+                        <h3>Itens Comprados:</h3>
+                        <table class='order-items-table'>
+                            <thead>
+                                <tr>
+                                    <th>Produto</th>
+                                    <th>Qtd</th>
+                                    <th>Preço Unit.</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>";
                     foreach ($cart_items as $item) {
-                        $order_details_display .= "- {$item['name']} (x{$item['quantity']}) - R$ " . number_format($item['price'] * $item['quantity'], 2, ',', '.') . "\n";
+                        $order_details_display_html .= "
+                                <tr>
+                                    <td>" . htmlspecialchars($item['name']) . "</td>
+                                    <td>" . htmlspecialchars($item['quantity']) . "</td>
+                                    <td>R$ " . number_format($item['price'], 2, ',', '.') . "</td>
+                                    <td>R$ " . number_format($item['price'] * $item['quantity'], 2, ',', '.') . "</td>
+                                </tr>";
                     }
-                    $order_details_display .= "\nSubtotal: R$ " . number_format($subtotal, 2, ',', '.') . "\n";
-                    $order_details_display .= "Frete: R$ " . number_format($shipping, 2, ',', '.') . "\n";
-                    $order_details_display .= "Total: R$ " . number_format($total_payable, 2, ',', '.') . "\n";
-                    $order_details_display .= "\nDados do Cliente:\n";
-                    $order_details_display .= "Nome: {$nome}\n";
-                    $order_details_display .= "Email: {$email}\n";
-                    $order_details_display .= "Telefone: {$telefone}\n";
-                    $order_details_display .= "Endereço: {$rua}, {$numero} - {$bairro}, {$cidade}/{$estado} - CEP: {$cep}\n";
-                    $order_details_display .= "Forma de Pagamento: {$pagamento}\n";
+                    $order_details_display_html .= "
+                            </tbody>
+                        </table>
+                        <div class='order-summary-details'>
+                            <p>Subtotal: <span>R$ " . number_format($subtotal, 2, ',', '.') . "</span></p>
+                            <p>Frete: <span>R$ " . number_format($shipping, 2, ',', '.') . "</span></p>
+                            <p>Desconto: <span>R$ " . number_format($discount, 2, ',', '.') . "</span></p>
+                            <p><strong>Total Pago: <span>R$ " . number_format($total_payable, 2, ',', '.') . "</span></strong></p>
+                            <p><strong>Método de Pagamento:</strong> " . htmlspecialchars($payment_details_display) . "</p>
+                        </div>
+                    ";
 
                     // Limpa o carrinho da sessão após a "compra" bem-sucedida
                     unset($_SESSION['cart']);
 
                     $conn->commit(); // Confirma todas as alterações no banco de dados
-                    $message = "Pedido realizado com sucesso! Em um sistema real, um e-mail de confirmação seria enviado para {$email}.";
+                    $message = "Pedido realizado com sucesso! Sua nota de pedido está pronta abaixo.";
                     $message_type = 'success';
-
+                    $show_receipt = true; // Flag para exibir o recibo
                 } catch (Exception $e) {
                     $conn->rollback(); // Reverte todas as alterações se algo deu errado
-                    $message = "Erro ao processar o pedido: " . $e->getMessage() . " O estoque não foi atualizado.";
+                    $message = "Erro ao processar o pedido: " . $e->getMessage() . " O estoque não foi atualizado ou ocorreu um problema. Por favor, tente novamente.";
                     $message_type = 'error';
+                    $show_receipt = false;
                 }
             }
         }
@@ -135,6 +187,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Se a página for acessada diretamente sem uma submissão POST válida
     $message = "Acesso inválido à página de processamento de checkout.";
     $message_type = 'error';
+    $show_receipt = false;
 }
 ?>
 <!DOCTYPE html>
@@ -151,8 +204,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body>
-    <header class="main-header">
-        <div class="logo">
+    <header class="main-header no-print"> <div class="logo">
             <img src="logo.png" alt="Logo Bel Vestit">
         </div>
         <h1>Bel Vestit</h1>
@@ -171,16 +223,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <h2>Status do Pedido</h2>
         <?php if (!empty($message)): ?>
             <p class="message <?php echo $message_type; ?>"><?php echo nl2br(htmlspecialchars($message)); ?></p>
-            <?php if ($message_type == 'success' && isset($order_details_display)): ?>
-                <h3>Detalhes da Simulação do Pedido:</h3>
-                <pre style="background-color: var(--color-border-light); padding: 15px; border-radius: 8px; overflow-x: auto; color: var(--color-text-dark); margin-top: 20px;"><code><?php echo htmlspecialchars($order_details_display); ?></code></pre>
-            <?php endif; ?>
         <?php endif; ?>
-        <p style="text-align: center; margin-top: 30px; color: var(--color-text-dark);">Obrigado por sua compra!</p>
+
+        <?php if ($show_receipt && isset($order_details_display_html)): ?>
+            <section class="order-receipt printable-area"> <h2>Nota do Pedido</h2>
+                <?php echo $order_details_display_html; ?>
+                <div class="print-actions no-print"> <button onclick="window.print()" class="print-button place-order-btn"><i class="fas fa-print"></i> Imprimir Pedido</button>
+                    <a href="index.php" class="place-order-btn" style="margin-top: 15px; background-color: var(--color-plum-purple);"><i class="fas fa-store"></i> Continuar Comprando</a>
+                </div>
+            </section>
+        <?php endif; ?>
+        
+        <?php if (!$show_receipt): ?>
+            <p style="text-align: center; margin-top: 30px; color: var(--color-text-dark);">Obrigado por sua visita!</p>
+        <?php endif; ?>
     </main>
 
-    <footer class="main-footer">
-        <p>&copy; 2025 Bel Vestit. Todos os direitos reservados.</p>
+    <footer class="main-footer no-print"> <p>&copy; 2025 Bel Vestit. Todos os direitos reservados.</p>
     </footer>
 </body>
 </html>
