@@ -173,7 +173,7 @@ a:hover {
     outline: none;
 }
 
-.filter-button, .search-button, .qty-btn, .remove-item-btn, .edit-btn, .delete-btn, .confirm-yes, .confirm-no {
+.filter-button, .search-button, .qty-btn, .remove-item-btn, .edit-btn, .delete-btn, .confirm-yes, .copy-button { /* Adicionado copy-button */
     background-color: var(--color-plum-purple);
     color: var(--color-text-light); /* Cor do texto em botões lilás */
     border: none;
@@ -186,7 +186,7 @@ a:hover {
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5); /* Sombra nos botões */
 }
 
-.filter-button:hover, .search-button:hover {
+.filter-button:hover, .search-button:hover, .copy-button:hover { /* Adicionado copy-button */
     background-color: var(--color-button-hover-accent);
     transform: translateY(-2px); /* Pequena elevação */
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5); /* Sombra más escura */
@@ -572,11 +572,13 @@ a:hover {
     font-size: 1.05em;
 }
 
+/* Estilos para campos de input e select (geral) */
 .form-group input[type="text"],
 .form-group input[type="email"],
 .form-group input[type="tel"],
 .form-group input[type="number"],
 .form-group input[type="url"],
+.form-group input[type="password"], /* Adicionado type password */
 .form-group select,
 .form-group textarea {
     width: 100%;
@@ -1092,6 +1094,221 @@ a:hover {
     color: var(--color-gold-accent);
 }
 
+/* Campos de pagamento dinâmicos no carrinho */
+.payment-method-fields {
+    border: 1px solid var(--color-border-light);
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+    background-color: #2e2e2e;
+}
+
+.payment-method-fields h4 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.6em;
+    margin-bottom: 20px;
+    color: var(--color-cream-light);
+    text-align: center;
+}
+
+.pix-qr-code, .boleto-image {
+    text-align: center;
+    margin-bottom: 20px;
+}
+.pix-qr-code img { /* Estilo específico para a imagem do QR Code PIX */
+    max-width: 180px; /* Força a diminuição do QR code */
+    height: auto;
+    border-radius: 8px;
+    border: 1px solid var(--color-plum-purple);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    display: block; /* Garante que margin auto funcione */
+    margin: 0 auto; /* Centraliza a imagem */
+}
+/* Estilos para boleto-image img podem ser removidos, já que o boleto foi tirado */
+
+.copy-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 10px;
+    background-color: var(--color-plum-purple);
+    color: var(--color-text-light);
+    padding: 8px 15px;
+    border-radius: 5px;
+    font-size: 0.9em;
+}
+.copy-button:hover {
+    background-color: var(--color-button-hover-accent);
+}
+
+/* Nota do Pedido / Recibo */
+.order-receipt {
+    background-color: #2e2e2e;
+    border: 1px solid var(--color-border-light);
+    border-radius: 12px;
+    padding: 40px;
+    margin-top: 30px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.order-receipt h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.5em;
+    text-align: center;
+    margin-bottom: 30px;
+    color: var(--color-cream-light);
+}
+
+.order-receipt p {
+    font-size: 1.1em;
+    margin-bottom: 8px;
+    color: var(--color-text-dark);
+}
+
+.order-receipt strong {
+    color: var(--color-cream-light);
+}
+
+.order-receipt h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.8em;
+    margin-top: 25px;
+    margin-bottom: 15px;
+    color: var(--color-plum-purple);
+    border-bottom: 2px solid var(--color-border-light);
+    padding-bottom: 5px;
+}
+
+.order-items-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.order-items-table th, .order-items-table td {
+    border: 1px solid var(--color-border-light);
+    padding: 12px;
+    text-align: left;
+    color: var(--color-text-dark);
+}
+
+.order-items-table th {
+    background-color: var(--color-plum-purple);
+    color: var(--color-text-light);
+    font-weight: 600;
+}
+
+.order-items-table tr:nth-child(even) {
+    background-color: #3e3e3e; /* Linhas zebradas na nota */
+}
+
+.order-summary-details {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px dashed var(--color-border-light);
+    text-align: right;
+}
+
+.order-summary-details p {
+    font-size: 1.2em;
+    margin-bottom: 5px;
+}
+
+.order-summary-details p span {
+    font-weight: bold;
+    color: var(--color-gold-accent);
+}
+
+.order-summary-details p strong span {
+    font-size: 1.3em;
+    color: var(--color-cream-light);
+}
+
+.print-actions {
+    text-align: center;
+    margin-top: 40px;
+}
+
+.print-button {
+    background-color: var(--color-plum-purple);
+    color: var(--color-text-light);
+    padding: 15px 30px;
+    font-size: 1.2em;
+    border-radius: 10px;
+    cursor: pointer;
+    border: none;
+    transition: background-color 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.print-button:hover {
+    background-color: var(--color-button-hover-accent);
+}
+
+/* Estilos de Impressão (Media Print) */
+@media print {
+    body {
+        background-color: #fff !important; /* Fundo branco para impressão */
+        color: #000 !important; /* Texto preto */
+        margin: 0;
+        padding: 0;
+        -webkit-print-color-adjust: exact; /* Para imprimir cores de fundo e texto */
+        print-color-adjust: exact;
+    }
+
+    .no-print { /* Oculta elementos que não devem aparecer na impressão */
+        display: none !important;
+    }
+
+    .main-container {
+        box-shadow: none !important;
+        border: none !important;
+        background-color: #fff !important;
+        color: #000 !important;
+        padding: 0 !important;
+        margin: 0 auto !important;
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+
+    .order-receipt {
+        box-shadow: none !important;
+        border: none !important;
+        background-color: #fff !important;
+        color: #000 !important;
+        padding: 0 !important;
+    }
+
+    .order-receipt h2,
+    .order-receipt h3,
+    .order-receipt p,
+    .order-items-table th,
+    .order-items-table td,
+    .order-summary-details p,
+    .order-summary-details p span,
+    .order-summary-details p strong span {
+        color: #000 !important; /* Força cor preta para textos */
+    }
+    
+    .order-items-table th {
+        background-color: #f0f0f0 !important; /* Fundo cinza claro para cabeçalho da tabela */
+        border-color: #ccc !important;
+    }
+
+    .order-items-table td {
+        border-color: #ccc !important;
+    }
+    .order-items-table tr:nth-child(even) {
+        background-color: #fafafa !important; /* Fundo mais claro para linhas zebradas */
+    }
+
+    .order-summary-details {
+        border-top-color: #ccc !important;
+    }
+}
+
 
 /* Responsividade Aprimorada */
 @media (max-width: 992px) { /* Ajuste para tablets */
@@ -1329,7 +1546,7 @@ a:hover {
         font-size: 1.8em;
     }
 
-    .filter-button, .search-button, .details-button, .qty-btn, .remove-item-btn, .edit-btn, .delete-btn, .confirm-yes, .confirm-no {
+    .filter-button, .search-button, .details-button, .qty-btn, .remove-item-btn, .edit-btn, .delete-btn, .confirm-yes, .copy-button {
         padding: 10px 15px;
         font-size: 0.9em;
     }
@@ -1378,4 +1595,6 @@ a:hover {
         flex-direction: column;
         align-items: center;
     }
+
+   
 }
